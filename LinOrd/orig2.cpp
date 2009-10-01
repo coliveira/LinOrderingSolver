@@ -1,3 +1,4 @@
+// (c) 2009, Carlos Oliveira
 #include <stdlib.h>
 #include <iostream>
 #include <iomanip>
@@ -14,7 +15,7 @@ using namespace std;
 
 const int    nItLimit = 5000;		//Iteration limit
 const double beta  = 0.3;			//cardinality restriction
-const double ALPHA = 1;
+const double ALPHA = 0.3;
 const double LARGENUM = 1E9;	
 
 int		Opt_Val;
@@ -28,7 +29,6 @@ class GraspData {
 	double *copy_of_values;			//Copy of Initial Greedy function
 	int *greedy_order;
 	int *copy_of_order;			//Copy of Initial greedy order
-    int *RCL;
 	int length;
     double **costs;
 
@@ -47,7 +47,6 @@ public:
         , copy_of_values(0)
         , greedy_order(0)
         , copy_of_order(0)
-        , RCL(0)
         , length(0)
         , costs(0) {}
     ~GraspData();
@@ -119,8 +118,8 @@ int main(int argc, char** argv)
 
 		if (nIt%10==0)
 		{
-            //if (nIt == 250) assert(currentValue == 262758);
-            //if (nIt == 250) assert(bestValue == 264455);
+            if (nIt == 10) assert(currentValue == 3332821);
+            if (nIt == 10) assert(bestValue == 3346552);
             printf("iteration: %d current: %d best %d \n", nIt, (int)currentValue, (int)bestValue);
 			//cout << setw(5) << nIt << ":  Current: "
 			//	 << setw(15) << currentValue << "  Best MAX: "
@@ -140,24 +139,28 @@ int main(int argc, char** argv)
 	return 0;
 }
 
+// tests to do:
+// 1. define the RCL size based on 
+//    a. values (as done currently)
+//    b. percentage of maximum size
+
 void GraspData::ConstructSolution(int* perm)
 {
 	double limit;
 
 	for (int k=0, num_remaining=length; k<length; ++k, --num_remaining)
 	{
-		limit = (greedy_value[0] - greedy_value[num_remaining-1]) * ALPHA;
+        double min_value = greedy_value[greedy_order[num_remaining-1]];
+		limit = (greedy_value[greedy_order[0]] - min_value) * (1 - ALPHA) + min_value;
 		
         int rcl_size = 1;
-        for (int i=1; i<num_remaining && greedy_value[i] >= limit; i++)  rcl_size++;
+        for (int i=1; i<num_remaining && greedy_value[greedy_order[i]] >= limit; i++)  rcl_size++;
 		
-		for (int i=0; i<rcl_size; i++) RCL[i] = greedy_order[i];
+        int elem = perm[k] = greedy_order[rand() % rcl_size];  // select an element from RCL
 
-        int elem = perm[k] = RCL[rand() % rcl_size];  // select an element from RCL
-
-		greedy_value[elem] = -LARGENUM;	// send position to bottom of list
+		greedy_value[elem] = -LARGENUM;
 		
-        for (int i=0; i<elem; i++)       // update sums
+        for (int i=0; i<length; ++i) // update attractiveness
 			if (greedy_value[i] != -LARGENUM)
 				greedy_value[i] -= ( costs[i][elem] - costs[elem][i] );
 
@@ -240,7 +243,6 @@ bool GraspData::AllocData(int problem_size)
     copy_of_values = new double [problem_size];
     greedy_order = new int [problem_size];
     copy_of_order = new int [problem_size];
-    RCL = new int [problem_size];            // memory used by RCL
     length = problem_size;
 
     costs = new double* [problem_size];
@@ -256,7 +258,6 @@ GraspData::~GraspData()
     if (copy_of_values) delete[] copy_of_values;
     if (greedy_order) delete[] greedy_order;
     if (copy_of_order) delete[] copy_of_order;
-    if (RCL) delete[] RCL;
 }
 
 bool GraspData::ReadInstanceValues(ifstream &file)
@@ -318,13 +319,12 @@ bool GraspData::InputInstance(const int argc, const char* datafile, int & proble
     printf("  Size: %d\n", problem_size);
 
 
-    // collapse matrix and obtain row sums
-    for (int i=0; i<problem_size-1; i++) greedy_value[i] = 0;
-    for (int i=0; i<problem_size-1; i++)			
-        for (int j=i+1; j<problem_size; j++)
+    // calculate attractiveness factors for each position
+    for (int i=0; i<problem_size; i++) greedy_value[i] = 0;
+    for (int i=0; i<problem_size; i++)			
+        for (int j=0; j<problem_size; j++)
             greedy_value[i] += ( costs[i][j] - costs[j][i] );
     
-    greedy_value[problem_size-1] = 0;
 
     qsort(greedy_order, problem_size, sizeof(int), ::compare);	
 
