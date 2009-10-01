@@ -41,7 +41,7 @@ list*	 pList = new list;					//Pointer to ``greedy'' list
 //////////////////////////////////////////////////////////////////////////////
 // MAIN																		//
 //////////////////////////////////////////////////////////////////////////////
-int still_another_main(int argc, char** argv)
+int main(int argc, char** argv)
 {
 	int	nIt = 0;							//Iteration Counter
 	int nN;									//Size of problem
