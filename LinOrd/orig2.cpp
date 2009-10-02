@@ -17,6 +17,7 @@ const int    nItLimit = 5000;		//Iteration limit
 const double beta  = 0.3;			//cardinality restriction
 const double ALPHA = 0.3;
 const double LARGENUM = 1E9;	
+const int ELITE_SIZE = 20;
 
 int		Opt_Val;
 
@@ -28,11 +29,12 @@ int compare (const void * a, const void * b);
 
 class GraspData {
 	double *greedy_value;
-	double *copy_of_values;			//Copy of Initial Greedy function
+	double *copy_of_values;
 	int *greedy_order;
-	int *copy_of_order;			//Copy of Initial greedy order
+	int *copy_of_order;
 	int length;
     double **costs;
+    int **elite_set;
 
 public:
 
@@ -51,7 +53,8 @@ public:
         , greedy_order(0)
         , copy_of_order(0)
         , length(0)
-        , costs(0) {}
+        , costs(0)
+        , elite_set(0) {}
     ~GraspData();
 
 };
@@ -239,6 +242,10 @@ bool GraspData::AllocData(int problem_size)
     for (int i=0; i<problem_size; i++)		  
         costs[i] = new double [problem_size];	  
 
+    elite_set = new int* [ELITE_SIZE];
+    for (int i=0; i<ELITE_SIZE; ++i)
+        elite_set[i] = new int[problem_size];
+
     return true;
 }
 
@@ -248,6 +255,15 @@ GraspData::~GraspData()
     if (copy_of_values) delete[] copy_of_values;
     if (greedy_order) delete[] greedy_order;
     if (copy_of_order) delete[] copy_of_order;
+    if (costs) {
+        for (int i=0; i<length; ++i) delete[] costs[i];
+        delete[] costs;
+    }
+
+    if (elite_set) {
+        for (int i=0; i<ELITE_SIZE; ++i) delete[] elite_set[i];
+        delete[] elite_set;
+    }
 }
 
 bool GraspData::ReadInstanceValues(ifstream &file)
