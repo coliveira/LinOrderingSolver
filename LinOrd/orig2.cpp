@@ -20,9 +20,11 @@ const double LARGENUM = 1E9;
 
 int		Opt_Val;
 
-void	LocalSearch(int* pSol, const int, double** c);
-void	LocalSearch2k(int* pSol, const int, double** c); //Entire neighborhood
-int		compare (const void * a, const void * b);
+void LocalSearch(int* pSol, const int, double** c);
+
+// search entire neighborhood
+bool LocalSearch2k(int* pSol, const int, double** c, double *delta); 
+int compare (const void * a, const void * b);
 
 class GraspData {
 	double *greedy_value;
@@ -36,11 +38,12 @@ public:
 
     void  ConstructSolution(int* pSol);
     bool InputInstance(const int argc, const char* datafile, int& problem_size);
-    double getSolValue (int* _pSol, bool isReverse);
+    double GetSolutionValue (int* permutation);
     void printv();
     bool AllocData(int problem_size);
     bool ReadInstanceValues(ifstream &file);
     double GreedyValue(int pos) { return this->greedy_value[pos]; }
+    double **GetCosts() { return costs; }
 
     GraspData() 
         : greedy_value(0)
@@ -58,84 +61,66 @@ GraspData g_GRASPData;
 
 int main(int argc, char** argv)
 {
-	srand (1); // (unsigned)time(NULL) ); // initialize random generator
-	double currentValue = 0;
-    double bestValue = currentValue;
-
-    const char *fileName = argv[1];
+	srand (1); // (unsigned)time(NULL));
 
     int problem_size = 0;
+    const char *fileName = argv[1];
     if (g_GRASPData.InputInstance(argc, fileName, problem_size) == false ) 
     {
-        printf("error reading instance\n");
+        printf("error reading instance %s\n", fileName);
         return 1;
     }
-
-    std::string output_file(fileName);
-    output_file += "_inbe_10.txt"; 	// ALPHA+beta = 0.3
-
-    ofstream out_file(output_file.c_str());
-	if (out_file.fail())
-        cout << "Error opening: " << output_file << endl;	
 
 	int *currentSolution = new int [problem_size];
 	int *bestSolution = new int [problem_size];
 
-    double tIt = 0;
-    int nIt = 0;
-	double averageValue = 0;
-	while (nIt < nItLimit)
+    clock_t total_const_time=0, total_ls_time=0;
+    int num_ls_iter = 0;
+    double bestValue = 0;
+    printf("constructor  (time)   LS   #iter  (time)  \n");
+	for (int num_iterations=1; num_iterations < nItLimit; ++num_iterations)
 	{
-        clock_t cpu1 = clock();
+        clock_t ct1 = clock();
 		g_GRASPData.ConstructSolution(currentSolution);
-		clock_t cpu2 = clock();
+		clock_t ct2 = clock();
+        total_const_time += ct2-ct1;
 
-		currentValue = g_GRASPData.getSolValue(currentSolution, false);  //true is reverse (min)
+        double delta, objective = g_GRASPData.GetSolutionValue(currentSolution);
+        printf("%.0lf %ld ", objective, ct2-ct1); fflush(stdout);
 
-		if (currentValue > bestValue) {
+        clock_t lst1 = clock();
+        int n=0;
+        for (; LocalSearch2k(currentSolution, problem_size, g_GRASPData.GetCosts(), &delta); ++n)
+            objective += delta;
+        clock_t lst2 = clock();
+        total_ls_time += lst2 - lst1;
+        num_ls_iter += n;
+        printf("%.0lf %.2lf %d \n", objective, (double)(lst2-lst1)/n, n); fflush(stdout);
+
+		if (objective > bestValue) {
 			for (int i=0; i<problem_size; i++) bestSolution[i] = currentSolution[i];
-			bestValue = currentValue;
+			bestValue = objective;
 		}
 
-		nIt++;
-		tIt += cpu2-cpu1;
-		averageValue += currentValue;
-
-
-		out_file << nIt; 
-        out_file << setw(8);
-        out_file << cpu2-cpu1;
-        out_file << setw(10);
-        out_file << tIt/nIt;
-        out_file << setw(15);
-        out_file << (averageValue/nIt);
-        out_file << setw(10);
-        out_file << (Opt_Val-(averageValue/nIt))*100/Opt_Val;
-        out_file << setw(15);
-        out_file << bestValue;
-        out_file << setw(10);
-        out_file << (Opt_Val-bestValue)*100/Opt_Val << endl;
-
-		if (nIt%10==0)
+		if (num_iterations % 10 == 0)
 		{
-            if (nIt == 10) assert(currentValue == 3332821);
-            if (nIt == 10) assert(bestValue == 3346552);
-            printf("iteration: %d current: %d best %d \n", nIt, (int)currentValue, (int)bestValue);
-			//cout << setw(5) << nIt << ":  Current: "
-			//	 << setw(15) << currentValue << "  Best MAX: "
-			//	 << setw(15) << bestValue << endl;
+            if (num_iterations == 10) assert(objective == 3391268);
+            if (num_iterations == 10) assert(bestValue == 3391268);
+            printf("iter: %d best %d constr_time: %.2lf ls_time: %.2lf\n",
+                num_iterations, (int)bestValue,
+                (double)total_const_time/num_iterations,
+                (double)total_ls_time/num_ls_iter);
 		}
 	}
 
-	//Report Best Solution
-	cout << "\nBEST PERMUTATION FOUND:\n";
+	cout << "\nFinal Permutation:\n";
 	for (int i=0; i<problem_size; i++)
 	{
-		cout << setw(4) << bestSolution[i];
-		if ((i+1)%10==0)
-			cout << endl;
+        printf("%d %s", bestSolution[i], (((i+1) % 10 == 0) ? "\n" : ""));
 	}
-	out_file.close();
+
+    delete [] currentSolution;
+    delete [] bestSolution;
 	return 0;
 }
 
@@ -143,6 +128,11 @@ int main(int argc, char** argv)
 // 1. define the RCL size based on 
 //    a. values (as done currently)
 //    b. percentage of maximum size
+
+// other TODOs:
+// * check local search
+// * in the constructor, check how to find the location where to add the new element
+// * in the constructor, implement the local search performed after each item is selected
 
 void GraspData::ConstructSolution(int* perm)
 {
@@ -165,8 +155,6 @@ void GraspData::ConstructSolution(int* perm)
 				greedy_value[i] -= ( costs[i][elem] - costs[elem][i] );
 
         qsort(greedy_order, num_remaining, sizeof(int), ::compare);	// update greedy order
-
-		if (k > 0) LocalSearch2k(perm, k+1, costs);  // local improvement
 	}
 
 	for (int i=0; i < length; i++) greedy_value[i] = copy_of_values[i];
@@ -204,11 +192,11 @@ void LocalSearch(int* perm, const int nN, double** c)
 }
 
 // perform search on full neighborhood	
-void LocalSearch2k(int* perm, const int nN, double** c)
+bool LocalSearch2k(int* perm, const int nN, double** c, double *delta)
 {
 	int pos1, pos2;
-	double best_delta = 0;
-	bool stop = false;
+	double &best_delta = *delta;
+    best_delta = 0;
 	for (int i=0; i<nN-1; ++i)
 	{
 		for (int j=i+1; j<nN; ++j) 
@@ -234,7 +222,9 @@ void LocalSearch2k(int* perm, const int nN, double** c)
 		int temp = perm[pos1];
 		perm[pos1] = perm[ pos2 ];
 		perm[pos2] = temp;
+        return true;
 	}
+    return false;
 }
 
 bool GraspData::AllocData(int problem_size)
@@ -346,17 +336,12 @@ int compare (const void * a, const void * b) //Compare, used to sort.
 	else return -1;
 }
 
-double GraspData::getSolValue(int *perm, bool isReverse)
+double GraspData::GetSolutionValue(int *perm)
 {
 	double val = 0;
-	for (int i=0; i < length-1; i++)
-	{
-		for (int j=i+1; j < length; j++)
-		{
-			if (isReverse) val += costs[ perm[j] ][ perm[i] ];
-			else           val += costs[ perm[i] ][ perm[j] ];
-		}
-	}
-	return val;
+	for (int i=0; i < length-1; ++i)
+		for (int j=i+1; j < length; ++j) val += costs[perm[i]][perm[j]];
+
+    return val;
 }
 
