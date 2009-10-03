@@ -74,8 +74,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
-	int *currentSolution = new int [problem_size];
-	int *bestSolution = new int [problem_size];
+	int *current_solution = new int [problem_size];
+	int *best_solution = new int [problem_size];
 
     clock_t total_const_time=0, total_ls_time=0;
     int num_ls_iter = 0;
@@ -84,16 +84,16 @@ int main(int argc, char** argv)
 	for (int num_iterations=1; num_iterations < nItLimit; ++num_iterations)
 	{
         clock_t ct1 = clock();
-		g_GRASPData.ConstructSolution(currentSolution);
+		g_GRASPData.ConstructSolution(current_solution);
 		clock_t ct2 = clock();
         total_const_time += ct2-ct1;
 
-        double delta, objective = g_GRASPData.GetSolutionValue(currentSolution);
+        double delta, objective = g_GRASPData.GetSolutionValue(current_solution);
         printf("%.0lf %ld ", objective, ct2-ct1); fflush(stdout);
 
         clock_t lst1 = clock();
         int n=0;
-        for (; LocalSearch2k(currentSolution, problem_size, g_GRASPData.GetCosts(), &delta); ++n)
+        for (; LocalSearch2k(current_solution, problem_size, g_GRASPData.GetCosts(), &delta); ++n)
             objective += delta;
         clock_t lst2 = clock();
         total_ls_time += lst2 - lst1;
@@ -101,7 +101,7 @@ int main(int argc, char** argv)
         printf("%.0lf %.2lf %d \n", objective, (double)(lst2-lst1)/n, n); fflush(stdout);
 
 		if (objective > bestValue) {
-			for (int i=0; i<problem_size; i++) bestSolution[i] = currentSolution[i];
+			for (int i=0; i<problem_size; i++) best_solution[i] = current_solution[i];
 			bestValue = objective;
 		}
 
@@ -119,11 +119,11 @@ int main(int argc, char** argv)
 	cout << "\nFinal Permutation:\n";
 	for (int i=0; i<problem_size; i++)
 	{
-        printf("%d %s", bestSolution[i], (((i+1) % 10 == 0) ? "\n" : ""));
+        printf("%d %s", best_solution[i], (((i+1) % 10 == 0) ? "\n" : ""));
 	}
 
-    delete [] currentSolution;
-    delete [] bestSolution;
+    delete [] current_solution;
+    delete [] best_solution;
 	return 0;
 }
 
