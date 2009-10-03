@@ -77,6 +77,23 @@ int main(int argc, char** argv)
 	int *current_solution = new int [problem_size];
 	int *best_solution = new int [problem_size];
 
+    struct EliteEntry {
+        int size;
+        int *perm;
+        double cost;
+        EliteEntry(int n) : size(n), perm(new int[n]), cost(-LARGENUM) {}
+        ~EliteEntry() { delete[] perm; }
+        void SetSol(int *p, double c) { for (int i=0; i<size; ++i) perm[i] = p[i]; cost = c;}
+        bool Equal(int *p, double c) {
+            if (c!=cost) return false;
+            for (int i=0; i<size; ++i) if (perm[i]!=p[i]) return false;
+            return true;
+        }
+    };
+
+    EliteEntry **elite_set = new EliteEntry*[ELITE_SIZE];
+    for (int i=0; i<ELITE_SIZE; ++i) elite_set[i] = new EliteEntry(problem_size);
+
     clock_t total_const_time=0, total_ls_time=0;
     int num_ls_iter = 0;
     double bestValue = 0;
@@ -100,6 +117,25 @@ int main(int argc, char** argv)
         num_ls_iter += n;
         printf("%.0lf %.2lf %d \n", objective, (double)(lst2-lst1)/n, n); fflush(stdout);
 
+        int pos=0; // find the first position where solution can be inserted
+        for (; pos<ELITE_SIZE && elite_set[pos]->cost > objective;)
+            ++pos; 
+        if (pos<ELITE_SIZE && !elite_set[pos]->Equal(current_solution, objective)) 
+        {
+            // reuse the last element (which will be removed)
+            elite_set[pos] = elite_set[ELITE_SIZE-1];
+            // shuffle all elements down to make room
+            for (int i=ELITE_SIZE-1; i>pos; --i) elite_set[i] = elite_set[i-1];
+            elite_set[pos]->SetSol(current_solution, objective); // store at location pos
+        }
+
+        if (num_iterations > ELITE_SIZE) { // run path relinking
+            int rand_pos = rand() % ELITE_SIZE;
+            EliteEntry *guiding_solution = elite_set[rand_pos];
+            for (int i = 0; i<problem_size; ++i) {
+            }
+        }
+
 		if (objective > bestValue) {
 			for (int i=0; i<problem_size; i++) best_solution[i] = current_solution[i];
 			bestValue = objective;
@@ -121,6 +157,9 @@ int main(int argc, char** argv)
 	{
         printf("%d %s", best_solution[i], (((i+1) % 10 == 0) ? "\n" : ""));
 	}
+
+    for (int i=0; i<ELITE_SIZE; ++i) delete elite_set[i];
+    delete[] elite_set;
 
     delete [] current_solution;
     delete [] best_solution;
