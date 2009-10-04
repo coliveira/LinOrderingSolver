@@ -27,11 +27,11 @@ bool LocalSearch2k(int* pSol, const int, double** c, double *delta);
 int compare (const void * a, const void * b);
 
 class GraspData {
-	double *greedy_value;
-	double *copy_of_values;
-	int *greedy_order;
-	int *copy_of_order;
-	int length;
+    double *greedy_value;
+    double *copy_of_values;
+    int *greedy_order;
+    int *copy_of_order;
+    int length;
     double **costs;
     int **elite_set;
 
@@ -63,7 +63,7 @@ GraspData g_GRASPData;
 
 int main(int argc, char** argv)
 {
-	srand (1); // (unsigned)time(NULL));
+    srand (1); // (unsigned)time(NULL));
 
     int problem_size = 0;
     const char *fileName = argv[1];
@@ -73,8 +73,8 @@ int main(int argc, char** argv)
         return 1;
     }
 
-	int *current_solution = new int [problem_size];
-	int *best_solution = new int [problem_size];
+    int *current_solution = new int [problem_size];
+    int *best_solution = new int [problem_size];
     int *elite_start = new int [problem_size];
 
     struct EliteEntry {
@@ -99,11 +99,11 @@ int main(int argc, char** argv)
     int num_ls_iter = 0;
     double bestValue = 0;
     printf("constructor  (time)   LS   #iter  (time)  \n");
-	for (int num_iterations=1; num_iterations < nItLimit; ++num_iterations)
-	{
+    for (int num_iterations=1; num_iterations < nItLimit; ++num_iterations)
+    {
         clock_t ct1 = clock();
-		g_GRASPData.ConstructSolution(current_solution);
-		clock_t ct2 = clock();
+        g_GRASPData.ConstructSolution(current_solution);
+        clock_t ct2 = clock();
         total_const_time += ct2-ct1;
 
         double delta, objective = g_GRASPData.GetSolutionValue(current_solution);
@@ -164,27 +164,27 @@ int main(int argc, char** argv)
         }
 
 
-		if (objective > bestValue) {
-			for (int i=0; i<problem_size; i++) best_solution[i] = current_solution[i];
-			bestValue = objective;
-		}
+        if (objective > bestValue) {
+            for (int i=0; i<problem_size; i++) best_solution[i] = current_solution[i];
+            bestValue = objective;
+        }
 
-		if (num_iterations % 10 == 0)
-		{
+        if (num_iterations % 10 == 0)
+        {
             if (num_iterations == 10) assert(objective == 3391268);
             if (num_iterations == 10) assert(bestValue == 3391268);
             printf("iter: %d best %d constr_time: %.2lf ls_time: %.2lf\n",
                 num_iterations, (int)bestValue,
                 (double)total_const_time/num_iterations,
                 (double)total_ls_time/num_ls_iter);
-		}
-	}
+        }
+    }
 
-	cout << "\nFinal Permutation:\n";
-	for (int i=0; i<problem_size; i++)
-	{
+    cout << "\nFinal Permutation:\n";
+    for (int i=0; i<problem_size; i++)
+    {
         printf("%d %s", best_solution[i], (((i+1) % 10 == 0) ? "\n" : ""));
-	}
+    }
 
     for (int i=0; i<ELITE_SIZE; ++i) delete elite_set[i];
     delete[] elite_set;
@@ -192,7 +192,7 @@ int main(int argc, char** argv)
     delete [] elite_start;
     delete [] current_solution;
     delete [] best_solution;
-	return 0;
+    return 0;
 }
 
 // tests to do:
@@ -207,94 +207,94 @@ int main(int argc, char** argv)
 
 void GraspData::ConstructSolution(int* perm)
 {
-	double limit;
+    double limit;
 
-	for (int k=0, num_remaining=length; k<length; ++k, --num_remaining)
-	{
+    for (int k=0, num_remaining=length; k<length; ++k, --num_remaining)
+    {
         double min_value = greedy_value[greedy_order[num_remaining-1]];
-		limit = (greedy_value[greedy_order[0]] - min_value) * (1 - ALPHA) + min_value;
-		
+        limit = (greedy_value[greedy_order[0]] - min_value) * (1 - ALPHA) + min_value;
+        
         int rcl_size = 1;
         for (int i=1; i<num_remaining && greedy_value[greedy_order[i]] >= limit; i++)  rcl_size++;
-		
+        
         int elem = perm[k] = greedy_order[rand() % rcl_size];  // select an element from RCL
 
-		greedy_value[elem] = -LARGENUM;
-		
+        greedy_value[elem] = -LARGENUM;
+        
         for (int i=0; i<length; ++i) // update attractiveness
-			if (greedy_value[i] != -LARGENUM)
-				greedy_value[i] -= ( costs[i][elem] - costs[elem][i] );
+            if (greedy_value[i] != -LARGENUM)
+                greedy_value[i] -= ( costs[i][elem] - costs[elem][i] );
 
         qsort(greedy_order, num_remaining, sizeof(int), ::compare);	// update greedy order
-	}
+    }
 
-	for (int i=0; i < length; i++) greedy_value[i] = copy_of_values[i];
-	for (int i=0; i < length; i++) greedy_order[i] = copy_of_order[i];
+    for (int i=0; i < length; i++) greedy_value[i] = copy_of_values[i];
+    for (int i=0; i < length; i++) greedy_order[i] = copy_of_order[i];
 }
 
 // LocalSearch. Checks only combinations containing the last value.
 void LocalSearch(int* perm, const int nN, double** c)
 {
-	const int LAST_POS = nN-1;
+    const int LAST_POS = nN-1;
 
     int pos;
-	double best_delta = 0;
+    double best_delta = 0;
     int j = perm[LAST_POS];
-	for (int i=0; i<LAST_POS; i++)	// permutes with i \in {0,...,nN-1}
-	{
+    for (int i=0; i<LAST_POS; i++)	// permutes with i \in {0,...,nN-1}
+    {
         double delta = c[j][perm[i]] - c[perm[i]][j];
 
         for (int k=i+1; k<LAST_POS; ++k) delta += c[perm[k]][perm[i]] - c[perm[i]][perm[k]];
-		for (int k=i+1; k<LAST_POS; ++k) delta += c[j][perm[k]]       - c[perm[k]][j];
-		
+        for (int k=i+1; k<LAST_POS; ++k) delta += c[j][perm[k]]       - c[perm[k]][j];
+        
         if (delta > best_delta)	// record best permutation so far
-		{
-			pos = i;
-			best_delta = delta;
-		}
-	} 
+        {
+            pos = i;
+            best_delta = delta;
+        }
+    } 
 
-	if (best_delta > 0) // improved solution
-	{
-		int temp = perm[ pos ];
-		perm[ pos ] = perm[ LAST_POS ];
-		perm[ LAST_POS ] = temp;
-	}
+    if (best_delta > 0) // improved solution
+    {
+        int temp = perm[ pos ];
+        perm[ pos ] = perm[ LAST_POS ];
+        perm[ LAST_POS ] = temp;
+    }
 }
 
 // perform search on full neighborhood	
 bool LocalSearch2k(int* perm, const int nN, double** c, double *delta)
 {
-	int pos1, pos2;
-	double &best_delta = *delta;
+    int pos1, pos2;
+    double &best_delta = *delta;
     best_delta = 0;
-	for (int i=0; i<nN-1; ++i)
-	{
-		for (int j=i+1; j<nN; ++j) 
-		{
+    for (int i=0; i<nN-1; ++i)
+    {
+        for (int j=i+1; j<nN; ++j) 
+        {
             int pi = perm[i], pj = perm[j];
-			
+            
             double delta = c[pj][pi] - c[pi][pj];
 
             for (int k = i+1; k<j; k++) delta += c[perm[k]][pi] - c[pi][perm[k]];
-			for (int k = i+1; k<j; k++) delta += c[pj][perm[k]] - c[perm[k]][pj];
+            for (int k = i+1; k<j; k++) delta += c[pj][perm[k]] - c[perm[k]][pj];
 
             if (delta > best_delta)	// record best permutation
-			{
-				pos1 = i;
-				pos2 = j;
-				best_delta = delta;
-			}
-		}
-	}
+            {
+                pos1 = i;
+                pos2 = j;
+                best_delta = delta;
+            }
+        }
+    }
 
-	if (best_delta > 0) // solution improved
-	{
-		int temp = perm[pos1];
-		perm[pos1] = perm[ pos2 ];
-		perm[pos2] = temp;
+    if (best_delta > 0) // solution improved
+    {
+        int temp = perm[pos1];
+        perm[pos1] = perm[ pos2 ];
+        perm[pos2] = temp;
         return true;
-	}
+    }
     return false;
 }
 
@@ -411,19 +411,19 @@ bool GraspData::InputInstance(const int argc, const char* datafile, int & proble
 int compare (const void * a, const void * b) //Compare, used to sort.
 {
     GraspData &data = g_GRASPData;
-	int a1 = *(int*)a;
-	int a2 = *(int*)b;
-	
+    int a1 = *(int*)a;
+    int a2 = *(int*)b;
+    
     if      (data.GreedyValue(a1) <  data.GreedyValue(a2)) return 1;
-	else if (data.GreedyValue(a1) == data.GreedyValue(a2)) return 0;
-	else return -1;
+    else if (data.GreedyValue(a1) == data.GreedyValue(a2)) return 0;
+    else return -1;
 }
 
 double GraspData::GetSolutionValue(int *perm)
 {
-	double val = 0;
-	for (int i=0; i < length-1; ++i)
-		for (int j=i+1; j < length; ++j) val += costs[perm[i]][perm[j]];
+    double val = 0;
+    for (int i=0; i < length-1; ++i)
+        for (int j=i+1; j < length; ++j) val += costs[perm[i]][perm[j]];
 
     return val;
 }
