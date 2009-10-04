@@ -33,7 +33,6 @@ class GraspData {
     int *copy_of_order;
     int length;
     double **costs;
-    int **elite_set;
 
 public:
 
@@ -52,8 +51,7 @@ public:
         , greedy_order(0)
         , copy_of_order(0)
         , length(0)
-        , costs(0)
-        , elite_set(0) {}
+        , costs(0) {}
     ~GraspData();
 
 };
@@ -127,7 +125,7 @@ int main(int argc, char** argv)
             int rand_pos = rand() % ELITE_SIZE;
             int *guiding_solution = elite_set[rand_pos]->GetPerm();
             for (int i=0; i<problem_size; ++i) elite_start[i] = current_solution[i];
-            for (int i = 0; i<problem_size; ++i) {
+            for (int i=0; i<problem_size; ++i) {
                 int elem = guiding_solution[i];
                 int elem_pos = 0;
                 for (int j=0; j<problem_size; ++j) if (elite_start[j]==elem) { elem_pos=j; break; }
@@ -307,12 +305,8 @@ bool GraspData::AllocData(int problem_size)
     length = problem_size;
 
     costs = new double* [problem_size];
-    for (int i=0; i<problem_size; i++)		  
-        costs[i] = new double [problem_size];	  
-
-    elite_set = new int* [ELITE_SIZE];
-    for (int i=0; i<ELITE_SIZE; ++i)
-        elite_set[i] = new int[problem_size];
+    for (int i=0; i<problem_size; i++)
+        costs[i] = new double [problem_size];
 
     return true;
 }
@@ -327,20 +321,14 @@ GraspData::~GraspData()
         for (int i=0; i<length; ++i) delete[] costs[i];
         delete[] costs;
     }
-
-    if (elite_set) {
-        for (int i=0; i<ELITE_SIZE; ++i) delete[] elite_set[i];
-        delete[] elite_set;
-    }
 }
 
 bool GraspData::ReadInstanceValues(ifstream &file)
 {
     const int buffer_size = 1024*10;
     char str[buffer_size];
-    file >> str;				  // read problem size
-    int problem_size = atoi(str);	
-
+    file >> str;            // read problem size
+    int problem_size = atoi(str);
 
     if (!AllocData(problem_size)) return false;
 
@@ -358,7 +346,7 @@ bool GraspData::ReadInstanceValues(ifstream &file)
     return true;
 }
 
-bool GraspData::InputInstance(const int argc, const char* datafile, int & problem_size)
+bool GraspData::InputInstance(const int argc, const char* datafile, int& problem_size)
 {
     if (argc != 2) 
     {
