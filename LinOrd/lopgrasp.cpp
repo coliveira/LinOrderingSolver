@@ -18,8 +18,6 @@ const double ALPHA = 0.3;
 const double LARGENUM = 1E9;	
 const int ELITE_SIZE = 20;
 
-int		Opt_Val;
-
 void LocalSearch(int* pSol, const int, double** c);
 
 // search entire neighborhood
