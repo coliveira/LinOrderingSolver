@@ -13,8 +13,7 @@
 
 using namespace std;
 
-const int    nItLimit = 5000;		//Iteration limit
-const double beta  = 0.3;			//cardinality restriction
+const int    nItLimit = 5000;  // iteration limit
 const double ALPHA = 0.3;
 const double LARGENUM = 1E9;	
 const int ELITE_SIZE = 20;
@@ -76,6 +75,7 @@ int main(int argc, char** argv)
 
 	int *current_solution = new int [problem_size];
 	int *best_solution = new int [problem_size];
+    int *elite_start = new int [problem_size];
 
     struct EliteEntry {
         int size;
@@ -84,6 +84,7 @@ int main(int argc, char** argv)
         EliteEntry(int n) : size(n), perm(new int[n]), cost(-LARGENUM) {}
         ~EliteEntry() { delete[] perm; }
         void SetSol(int *p, double c) { for (int i=0; i<size; ++i) perm[i] = p[i]; cost = c;}
+        int *GetPerm() { return perm; }
         bool Equal(int *p, double c) {
             if (c!=cost) return false;
             for (int i=0; i<size; ++i) if (perm[i]!=p[i]) return false;
@@ -110,31 +111,58 @@ int main(int argc, char** argv)
 
         clock_t lst1 = clock();
         int n=0;
+        double orig_objective = objective;
         for (; LocalSearch2k(current_solution, problem_size, g_GRASPData.GetCosts(), &delta); ++n)
             objective += delta;
         clock_t lst2 = clock();
         total_ls_time += lst2 - lst1;
         num_ls_iter += n;
-        printf("%.0lf %.2lf %d \n", objective, (double)(lst2-lst1)/n, n); fflush(stdout);
+        printf("%.0lf %.2lf %d (imp %.2lf) ", 
+            objective, (double)(lst2-lst1)/n, n, 100*(objective-orig_objective)/orig_objective); fflush(stdout);
 
-        int pos=0; // find the first position where solution can be inserted
+
+        if (num_iterations > ELITE_SIZE) { // run path relinking
+            clock_t prt1 = clock();
+            orig_objective = objective;
+            int rand_pos = rand() % ELITE_SIZE;
+            int *guiding_solution = elite_set[rand_pos]->GetPerm();
+            for (int i=0; i<problem_size; ++i) elite_start[i] = current_solution[i];
+            for (int i = 0; i<problem_size; ++i) {
+                int elem = guiding_solution[i];
+                int elem_pos = 0;
+                for (int j=0; j<problem_size; ++j) if (elite_start[j]==elem) { elem_pos=j; break; }
+                // change elite_start to the contain the element on position i
+                elite_start[elem_pos] = elite_start[i];
+                elite_start[i] = elem;
+                // TODO: add local search here
+            }
+            clock_t prt2 = clock();
+            objective = g_GRASPData.GetSolutionValue(elite_start);
+
+            if (objective > orig_objective) {
+                for (int i=0; i<problem_size; ++i) current_solution[i] = elite_start[i];
+                printf("%.0lf %.2lf (imp %.2lf)", 
+                    objective, (double)(prt2-prt1), 100*(objective-orig_objective)/orig_objective);
+            } else {
+                objective = orig_objective;
+            }
+        }
+
+        printf("\n");
+
+        int pos=0; // find the first position where a solution can be inserted
         for (; pos<ELITE_SIZE && elite_set[pos]->cost > objective;)
             ++pos; 
         if (pos<ELITE_SIZE && !elite_set[pos]->Equal(current_solution, objective)) 
         {
             // reuse the last element (which will be removed)
-            elite_set[pos] = elite_set[ELITE_SIZE-1];
+            EliteEntry *eEntry = elite_set[ELITE_SIZE-1];
             // shuffle all elements down to make room
             for (int i=ELITE_SIZE-1; i>pos; --i) elite_set[i] = elite_set[i-1];
+            elite_set[pos] = eEntry;
             elite_set[pos]->SetSol(current_solution, objective); // store at location pos
         }
 
-        if (num_iterations > ELITE_SIZE) { // run path relinking
-            int rand_pos = rand() % ELITE_SIZE;
-            EliteEntry *guiding_solution = elite_set[rand_pos];
-            for (int i = 0; i<problem_size; ++i) {
-            }
-        }
 
 		if (objective > bestValue) {
 			for (int i=0; i<problem_size; i++) best_solution[i] = current_solution[i];
@@ -161,6 +189,7 @@ int main(int argc, char** argv)
     for (int i=0; i<ELITE_SIZE; ++i) delete elite_set[i];
     delete[] elite_set;
 
+    delete [] elite_start;
     delete [] current_solution;
     delete [] best_solution;
 	return 0;
@@ -352,7 +381,6 @@ bool GraspData::InputInstance(const int argc, const char* datafile, int & proble
     printf("Settings:\n");
     printf("  Max #Iterations: %d\n", nItLimit);
     printf("  Alpha: %lf\n", ALPHA);
-    printf("  Beta: %lf\n", beta);
     printf("Problem\n");
     printf("  Filename: %s\n", datafile);
     printf("  Title: %s\n", str);
