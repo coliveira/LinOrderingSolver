@@ -56,6 +56,20 @@ public:
 
 GraspData g_GRASPData;
 
+struct EliteEntry {
+    int size;
+    int *perm;
+    double cost;
+    EliteEntry(int n) : size(n), perm(new int[n]), cost(-LARGENUM) {}
+    ~EliteEntry() { delete[] perm; }
+    void SetSol(int *p, double c) { for (int i=0; i<size; ++i) perm[i] = p[i]; cost = c;}
+    int *GetPerm() { return perm; }
+    bool Equal(int *p, double c) {
+        if (c!=cost) return false;
+        for (int i=0; i<size; ++i) if (perm[i]!=p[i]) return false;
+        return true;
+    }
+};
 
 int main(int argc, char** argv)
 {
@@ -72,21 +86,6 @@ int main(int argc, char** argv)
     int *current_solution = new int [problem_size];
     int *best_solution = new int [problem_size];
     int *elite_start = new int [problem_size];
-
-    struct EliteEntry {
-        int size;
-        int *perm;
-        double cost;
-        EliteEntry(int n) : size(n), perm(new int[n]), cost(-LARGENUM) {}
-        ~EliteEntry() { delete[] perm; }
-        void SetSol(int *p, double c) { for (int i=0; i<size; ++i) perm[i] = p[i]; cost = c;}
-        int *GetPerm() { return perm; }
-        bool Equal(int *p, double c) {
-            if (c!=cost) return false;
-            for (int i=0; i<size; ++i) if (perm[i]!=p[i]) return false;
-            return true;
-        }
-    };
 
     EliteEntry **elite_set = new EliteEntry*[ELITE_SIZE];
     for (int i=0; i<ELITE_SIZE; ++i) elite_set[i] = new EliteEntry(problem_size);
