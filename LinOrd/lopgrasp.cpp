@@ -13,11 +13,9 @@ const double ALPHA = 0.3;
 const double LARGENUM = 1E9;	
 const int ELITE_SIZE = 20;
 
-void LocalSearch(int* pSol, const int, double** c);
-
-// search entire neighborhood
-bool LocalSearch2k(int* pSol, const int, double** c, double *delta); 
-int compare (const void * a, const void * b);
+void LocalSearchForLastEntry(int* pSol, const int, double** c);
+bool LocalSearch(int* pSol, const int, double** c, double *delta); 
+int compare (const void * a, const void * b); // used by qsort algorithm
 
 class GraspData {
     double *greedy_value;
@@ -101,10 +99,11 @@ int main(int argc, char** argv)
         double delta, objective = g_GRASPData.GetSolutionValue(current_solution);
         printf("%.0lf %ld ", objective, ct2-ct1); fflush(stdout);
 
+        // appy local search
         clock_t lst1 = clock();
         int n=0;
         double orig_objective = objective;
-        for (; LocalSearch2k(current_solution, problem_size, g_GRASPData.GetCosts(), &delta); ++n)
+        for (; LocalSearch(current_solution, problem_size, g_GRASPData.GetCosts(), &delta); ++n)
             objective += delta;
         clock_t lst2 = clock();
         total_ls_time += lst2 - lst1;
@@ -225,7 +224,7 @@ void GraspData::ConstructSolution(int* perm)
 }
 
 // LocalSearch. Checks only combinations containing the last value.
-void LocalSearch(int* perm, const int nN, double** c)
+void LocalSearchForLastEntry(int* perm, const int nN, double** c)
 {
     const int LAST_POS = nN-1;
 
@@ -255,7 +254,7 @@ void LocalSearch(int* perm, const int nN, double** c)
 }
 
 // perform search on full neighborhood	
-bool LocalSearch2k(int* perm, const int nN, double** c, double *delta)
+bool LocalSearch(int* perm, const int nN, double** c, double *delta)
 {
     int pos1, pos2;
     double &best_delta = *delta;
