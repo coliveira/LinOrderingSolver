@@ -1,13 +1,8 @@
 // (c) 2009, Carlos Oliveira
 #include <stdlib.h>
-#include <iostream>
-#include <iomanip>
 #include <fstream>
 #include <time.h>
 #include <stdio.h>
-#include <ctype.h>
-#include <string.h>
-#include <math.h>
 #include <assert.h>
 #include <string>
 
@@ -175,7 +170,7 @@ int main(int argc, char** argv)
         }
     }
 
-    cout << "\nFinal Permutation:\n";
+    printf("\nFinal Permutation:\n");
     for (int i=0; i<problem_size; i++)
     {
         printf("%d %s", best_solution[i], (((i+1) % 10 == 0) ? "\n" : ""));
