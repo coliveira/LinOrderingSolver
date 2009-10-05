@@ -26,6 +26,7 @@ class GraspData {
     int *copy_of_order;
     int length;
     double **costs;
+    double **ls_entries; // used by local search
 
 public:
 
@@ -44,7 +45,8 @@ public:
         , greedy_order(0)
         , copy_of_order(0)
         , length(0)
-        , costs(0) {}
+        , costs(0)
+        , ls_entries(0) {}
     ~GraspData();
 
 };
@@ -300,6 +302,10 @@ bool GraspData::AllocData(int problem_size)
     for (int i=0; i<problem_size; i++)
         costs[i] = new double [problem_size];
 
+    ls_entries = new double* [problem_size];
+    for (int i=0; i<problem_size; ++i)
+        ls_entries[i] = new double [problem_size];
+
     return true;
 }
 
@@ -309,10 +315,10 @@ GraspData::~GraspData()
     if (copy_of_values) delete[] copy_of_values;
     if (greedy_order) delete[] greedy_order;
     if (copy_of_order) delete[] copy_of_order;
-    if (costs) {
-        for (int i=0; i<length; ++i) delete[] costs[i];
-        delete[] costs;
-    }
+    if (costs)  for (int i=0; i<length; ++i) delete[] costs[i];
+    if (costs)  delete[] costs;
+    if (ls_entries) for (int i=0; i<length; ++i) delete[] ls_entries[i];
+    if (ls_entries) delete[] ls_entries;
 }
 
 bool GraspData::ReadInstanceValues(ifstream &file)
