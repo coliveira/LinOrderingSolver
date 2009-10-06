@@ -13,10 +13,6 @@ const double ALPHA = 0.3;
 const double LARGENUM = 1E9;	
 const int ELITE_SIZE = 20;
 
-void LocalSearchForLastEntry(int* pSol, const int, double** c);
-bool LocalSearch(int* pSol, const int, double** c, double *delta); 
-int compare (const void * a, const void * b); // used by qsort algorithm
-
 class GraspData {
     double *greedy_value;
     double *copy_of_values;
@@ -36,6 +32,7 @@ public:
     bool ReadInstanceValues(ifstream &file);
     double GreedyValue(int pos) { return this->greedy_value[pos]; }
     double **GetCosts() { return costs; }
+    double **GetLSEntries() { return ls_entries; }
 
     GraspData() 
         : greedy_value(0)
@@ -50,6 +47,12 @@ public:
 };
 
 GraspData g_GRASPData;
+
+void LocalSearchForLastEntry(int* pSol, const int, double** c);
+bool LocalSearch(int* perm, const int n, double** c, double *delta, double **M);
+bool LocalSearch(int* perm, const int n, double *delta, GraspData *data);
+int compare (const void * a, const void * b); // used by qsort algorithm
+
 
 struct EliteEntry {
     int size;
@@ -103,7 +106,7 @@ int main(int argc, char** argv)
         clock_t lst1 = clock();
         int n=0;
         double orig_objective = objective;
-        for (; LocalSearch(current_solution, problem_size, g_GRASPData.GetCosts(), &delta); ++n)
+        for (; LocalSearch(current_solution, problem_size, &delta, &g_GRASPData); ++n)
             objective += delta;
         clock_t lst2 = clock();
         total_ls_time += lst2 - lst1;
@@ -253,32 +256,36 @@ void LocalSearchForLastEntry(int* perm, const int nN, double** c)
     }
 }
 
+bool LocalSearch(int* perm, const int n, double *delta, GraspData *data)
+{
+    return LocalSearch(perm, n, data->GetCosts(), delta, data->GetLSEntries());
+}
+
 // perform search on full neighborhood	
-bool LocalSearch(int* perm, const int nN, double** c, double *delta)
+bool LocalSearch(int* perm, const int n, double** c, double *delta, double **M)
 {
     int pos1, pos2;
     double &best_delta = *delta;
     best_delta = 0;
-    for (int i=0; i<nN-1; ++i)
+
+    for (int k=0; k<n-1; ++k)
     {
-        for (int j=i+1; j<nN; ++j) 
+        for (int i=0, j=k+1; j<n; ++i, ++j)
         {
             int pi = perm[i], pj = perm[j];
-            
-            double delta = c[pj][pi] - c[pi][pj];
+            int ppi = perm[i+1], pmj = perm[j-1];
 
-            for (int k = i+1; k<j; k++) delta += c[perm[k]][pi] - c[pi][perm[k]];
-            for (int k = i+1; k<j; k++) delta += c[pj][perm[k]] - c[perm[k]][pj];
+            double deltaij = c[pj][pi] - c[pi][pj];
+            if (j-i > 1) deltaij += M[i][j-1] + M[i+1][j];
+            if (j-i > 2) deltaij += - M[i+1][j-1] - (c[pmj][ppi] - c[ppi][pmj]);
+            M[i][j] = deltaij;
 
-            if (delta > best_delta)	// record best permutation
-            {
-                pos1 = i;
-                pos2 = j;
-                best_delta = delta;
-            }
+            if (deltaij > best_delta)  pos1 = i, pos2 = j, best_delta = deltaij;
         }
     }
 
+    static int test = 0;
+    if (test == 0) test = 1, assert(best_delta == 35774);
     if (best_delta > 0) // solution improved
     {
         int temp = perm[pos1];
