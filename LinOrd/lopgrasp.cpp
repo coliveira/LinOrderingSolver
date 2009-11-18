@@ -14,7 +14,7 @@ const double ALPHA = 0.3;
 const double LARGENUM = 1E9;	
 const int ELITE_SIZE = 20;
 
-class GraspData {
+struct GraspData {
     double *greedy_value;
     double *copy_of_values;
     int *greedy_order;
@@ -22,30 +22,18 @@ class GraspData {
     int length;
     double **costs;
     double **ls_entries; // used by local search
-
-public:
-
-    void  ConstructSolution(int* pSol);
-    bool InputInstance(const int argc, char **argv, int& problem_size);
-    double GetSolutionValue (int* permutation);
-    void printv();
-    bool AllocData(int problem_size);
-    bool ReadInstanceValues(ifstream &file);
-    double GreedyValue(int pos) { return this->greedy_value[pos]; }
-    double **GetCosts() { return costs; }
-    double **GetLSEntries() { return ls_entries; }
-
-    GraspData() 
-        : greedy_value(0)
-        , copy_of_values(0)
-        , greedy_order(0)
-        , copy_of_order(0)
-        , length(0)
-        , costs(0)
-        , ls_entries(0) {}
-    ~GraspData();
-
 };
+
+void  ConstructSolution(GraspData *d, int* pSol);
+bool InputInstance(GraspData *d, const int argc, char **argv, int& problem_size);
+double GetSolutionValue (GraspData *d, int* permutation);
+void printv(GraspData *d);
+bool AllocData(GraspData *d, int problem_size);
+bool ReadInstanceValues(GraspData *d, ifstream &file);
+double GreedyValue(GraspData *d, int pos) { return d->greedy_value[pos]; }
+double **GetCosts(GraspData *d) { return d->costs; }
+double **GetLSEntries(GraspData *d) { return d->ls_entries; }
+
 
 GraspData g_GRASPData;
 
@@ -175,7 +163,7 @@ int main(int argc, char** argv)
     const char *fileName = argv[1];
     
     // input instance
-    if (!g_GRASPData.InputInstance(argc, argv, problem_size)) 
+    if (!InputInstance(&g_GRASPData, argc, argv, problem_size)) 
         return instanceError(fileName);
 
     // alloc memory
@@ -193,12 +181,12 @@ int main(int argc, char** argv)
     {
         // apply constructor
         clock_t ct1 = clock();
-        g_GRASPData.ConstructSolution(current_solution);
+        ConstructSolution(&g_GRASPData, current_solution);
         clock_t ct2 = clock();
         total_const_time += ct2-ct1;
 
         // get cost, store values
-        double delta, objective = g_GRASPData.GetSolutionValue(current_solution);
+        double delta, objective = GetSolutionValue(&g_GRASPData, current_solution);
         Results res;
         res.obj1 = objective; res.time1 = ct2-ct1;
         double percCompleted = 100*(num_iterations/(double)nItLimit);
@@ -236,7 +224,7 @@ int main(int argc, char** argv)
                 // TODO: add local search here
             }
             clock_t prt2 = clock();
-            objective = g_GRASPData.GetSolutionValue(elite_start);
+            objective = GetSolutionValue(&g_GRASPData, elite_start);
 
             res.obj3 = objective;
             if (objective > orig_objective) {
@@ -295,9 +283,13 @@ int main(int argc, char** argv)
 // * in the constructor, check how to find the location where to add the new element
 // * in the constructor, implement the local search performed after each item is selected
 
-void GraspData::ConstructSolution(int* perm)
+void ConstructSolution(GraspData *d, int* perm)
 {
     double limit;
+    int length = d->length;
+    double *greedy_value = d->greedy_value;
+    int *greedy_order = d->greedy_order;
+    double **costs = d->costs;
 
     for (int k=0, num_remaining=length; k<length; ++k, --num_remaining)
     {
@@ -318,8 +310,8 @@ void GraspData::ConstructSolution(int* perm)
         qsort(greedy_order, num_remaining, sizeof(int), ::compare);	// update greedy order
     }
 
-    for (int i=0; i < length; i++) greedy_value[i] = copy_of_values[i];
-    for (int i=0; i < length; i++) greedy_order[i] = copy_of_order[i];
+    for (int i=0; i < length; i++) greedy_value[i] = d->copy_of_values[i];
+    for (int i=0; i < length; i++) greedy_order[i] = d->copy_of_order[i];
 }
 
 // LocalSearch. Checks only combinations containing the last value.
@@ -354,7 +346,7 @@ void LocalSearchForLastEntry(int* perm, const int nN, double** c)
 
 bool LocalSearch(int* perm, const int n, double *delta, GraspData *data)
 {
-    return LocalSearch(perm, n, data->GetCosts(), delta, data->GetLSEntries());
+    return LocalSearch(perm, n, GetCosts(data), delta, GetLSEntries(data));
 }
 
 // perform search on full neighborhood	
@@ -392,19 +384,19 @@ bool LocalSearch(int* perm, const int n, double** c, double *delta, double **M)
     return false;
 }
 
-bool GraspData::AllocData(int n)
+bool AllocData(GraspData *d, int n)
 {
-    length = n;
-    ALLOC_OR_RET(greedy_value, n);
-    ALLOC_OR_RET(copy_of_values, n);
-    ALLOC_OR_RET(greedy_order, n);
-    ALLOC_OR_RET(copy_of_order, n);
+    d->length = n;
+    ALLOC_OR_RET(d->greedy_value, n);
+    ALLOC_OR_RET(d->copy_of_values, n);
+    ALLOC_OR_RET(d->greedy_order, n);
+    ALLOC_OR_RET(d->copy_of_order, n);
 
-    ALLOC_OR_RET(costs, n);
-    for (int i=0; i<n; i++) ALLOC_OR_RET(costs[i], n);
+    ALLOC_OR_RET(d->costs, n);
+    for (int i=0; i<n; i++) ALLOC_OR_RET(d->costs[i], n);
 
-    ALLOC_OR_RET(ls_entries, n);
-    for (int i=0; i<n; ++i) ALLOC_OR_RET(ls_entries[i], n);
+    ALLOC_OR_RET(d->ls_entries, n);
+    for (int i=0; i<n; ++i) ALLOC_OR_RET(d->ls_entries[i], n);
 
     return true;
 }
@@ -415,37 +407,37 @@ template<class T>void mvecDelete(T *v, int n) {
     vecDelete(v);
 }
 
-GraspData::~GraspData()
+void deleteGrasp(GraspData *d)
 {
-    vecDelete(greedy_value);
-    vecDelete(copy_of_values);
-    vecDelete(greedy_order);
-    vecDelete(copy_of_order);
-    mvecDelete (costs, length);
-    mvecDelete (ls_entries, length);
+    vecDelete(d->greedy_value);
+    vecDelete(d->copy_of_values);
+    vecDelete(d->greedy_order);
+    vecDelete(d->copy_of_order);
+    mvecDelete (d->costs, d->length);
+    mvecDelete (d->ls_entries, d->length);
 }
 
 void readStr(ifstream &f, char *s, double **c, int i, int j) { f >> s; c[i][j] = atoi(s); }
 
-bool GraspData::ReadInstanceValues(ifstream &file)
+bool ReadInstanceValues(GraspData *d, ifstream &file)
 {
     const int buffer_size = 1024*10;
     char str[buffer_size];
     file >> str;            // read problem size
     int n = atoi(str);
 
-    if (!AllocData(n)) return false;
+    if (!AllocData(d, n)) return false;
 
-    for (int i=0; i<n; i++) greedy_order[i] = i;
+    for (int i=0; i<n; i++) d->greedy_order[i] = i;
 
     // read cost matrix
     for (int i=0; i<n; ++i) 
-        for (int j=0; j<n; ++j) readStr(file, str, costs, i, j);
+        for (int j=0; j<n; ++j) readStr(file, str, d->costs, i, j);
 
     return true;
 }
 
-bool GraspData::InputInstance(const int argc, char **argv, int& problem_size)
+bool InputInstance(GraspData *d, const int argc, char **argv, int& problem_size)
 {
     ifstream file(argv[1], ifstream::in);
     
@@ -464,9 +456,10 @@ bool GraspData::InputInstance(const int argc, char **argv, int& problem_size)
     printf("  Filename: %s\n", argv[1]);
     printf("  Title: %s\n", str);
 
-    ReadInstanceValues(file);
+    ReadInstanceValues(d, file);
 
-    problem_size = length;
+    problem_size = d->length;
+    double *greedy_value = d->greedy_value;
 
     printf("  Size: %d\n", problem_size);
 
@@ -474,14 +467,14 @@ bool GraspData::InputInstance(const int argc, char **argv, int& problem_size)
     for (int i=0; i<problem_size; i++) greedy_value[i] = 0;
     for (int i=0; i<problem_size; i++)			
         for (int j=0; j<problem_size; j++)
-            greedy_value[i] += ( costs[i][j] - costs[j][i] );
+            greedy_value[i] += ( d->costs[i][j] - d->costs[j][i] );
     
 
-    qsort(greedy_order, problem_size, sizeof(int), ::compare);	
+    qsort(d->greedy_order, problem_size, sizeof(int), ::compare);	
 
     // make a copy of initial values
-    for (int i=0; i<problem_size; i++) copy_of_values[i] = greedy_value[i];
-    for (int i=0; i<problem_size; i++) copy_of_order[i] = greedy_order[i];
+    for (int i=0; i<problem_size; i++) d->copy_of_values[i] = greedy_value[i];
+    for (int i=0; i<problem_size; i++) d->copy_of_order[i] = d->greedy_order[i];
     
     return true;
 }
@@ -492,16 +485,16 @@ int compare (const void * a, const void * b) //Compare, used to sort.
     int a1 = *(int*)a;
     int a2 = *(int*)b;
     
-    if      (data.GreedyValue(a1) <  data.GreedyValue(a2)) return 1;
-    else if (data.GreedyValue(a1) == data.GreedyValue(a2)) return 0;
+    if      (GreedyValue(&data, a1) <  GreedyValue(&data, a2)) return 1;
+    else if (GreedyValue(&data, a1) == GreedyValue(&data, a2)) return 0;
     else return -1;
 }
 
-double GraspData::GetSolutionValue(int *perm)
+double GetSolutionValue(GraspData *d, int *perm)
 {
     double val = 0;
-    for (int i=0; i < length-1; ++i)
-        for (int j=i+1; j < length; ++j) val += costs[perm[i]][perm[j]];
+    for (int i=0; i < d->length-1; ++i)
+        for (int j=i+1; j < d->length; ++j) val += d->costs[perm[i]][perm[j]];
 
     return val;
 }
