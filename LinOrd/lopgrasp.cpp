@@ -150,6 +150,21 @@ void printRes(const vector<Results> &resultList)
 #endif
 }
 
+void insertSol(EliteEntry **e, int n, int pos, double cost, int *sol) {
+    EliteEntry *t = e[n-1];    // reuse last pos    
+    for (int i=n-1; i>pos; --i) e[i] = e[i-1]; // make room
+    (e[pos] = t)->SetSol(sol, cost); // store at empty pos
+}
+
+void insertIntoElite(EliteEntry **e, double cost, int *sol) {
+    const int n = ELITE_SIZE;
+
+    // find the first position where a solution can be inserted
+    int pos=0;  for (; pos<n && e[pos]->cost > cost;) ++pos; 
+    if (pos<n && !e[pos]->Equal(sol, cost)) insertSol(e, n, pos, cost, sol);
+}
+
+
 int main(int argc, char** argv)
 {
    if (argc != 2) return usage(argv[0]);
@@ -159,27 +174,30 @@ int main(int argc, char** argv)
     int problem_size = 0;
     const char *fileName = argv[1];
     
+    // input instance
     if (!g_GRASPData.InputInstance(argc, argv, problem_size)) 
         return instanceError(fileName);
 
+    // alloc memory
     int *current_solution, *best_solution,*elite_start;
     EliteEntry **elite_set;
     if (!allocMemory(problem_size, current_solution, best_solution, elite_start, elite_set)) 
         return failMem();
 
     vector<Results> resultList;
-
     clock_t total_const_time=0, total_ls_time=0;
     int num_ls_iter = 0;
     double bestValue = 0;
     printf("constructor  (time)   LS   #iter  (time)  \n");
     for (int num_iterations=1; num_iterations < nItLimit; ++num_iterations)
     {
+        // apply constructor
         clock_t ct1 = clock();
         g_GRASPData.ConstructSolution(current_solution);
         clock_t ct2 = clock();
         total_const_time += ct2-ct1;
 
+        // get cost, store values
         double delta, objective = g_GRASPData.GetSolutionValue(current_solution);
         Results res;
         res.obj1 = objective; res.time1 = ct2-ct1;
@@ -196,12 +214,13 @@ int main(int argc, char** argv)
         total_ls_time += lst2 - lst1;
         num_ls_iter += n;
 
-        // save info
+        // store values
         res.obj2 = objective; res.time2 = (double)(lst2-lst1)/n; res.n = n;
         res.perc1 = 100*(objective-orig_objective)/orig_objective;
         printfRes1(res.obj2, res.time2, n, res.perc1);
 
-        if (num_iterations > ELITE_SIZE) { // run path relinking
+        // apply path relinking
+        if (num_iterations > ELITE_SIZE) { 
             clock_t prt1 = clock();
             orig_objective = objective;
             int rand_pos = rand() % ELITE_SIZE;
@@ -231,20 +250,9 @@ int main(int argc, char** argv)
 
         DODBG(printf("\n"));
 
-        int pos=0; // find the first position where a solution can be inserted
-        for (; pos<ELITE_SIZE && elite_set[pos]->cost > objective;)
-            ++pos; 
-        if (pos<ELITE_SIZE && !elite_set[pos]->Equal(current_solution, objective)) 
-        {
-            // reuse the last element (which will be removed)
-            EliteEntry *eEntry = elite_set[ELITE_SIZE-1];
-            // shuffle all elements down to make room
-            for (int i=ELITE_SIZE-1; i>pos; --i) elite_set[i] = elite_set[i-1];
-            elite_set[pos] = eEntry;
-            elite_set[pos]->SetSol(current_solution, objective); // store at location pos
-        }
+        insertIntoElite(elite_set, objective, current_solution);
 
-
+        // save solution
         if (objective > bestValue) {
             for (int i=0; i<problem_size; i++) best_solution[i] = current_solution[i];
             bestValue = objective;
@@ -260,8 +268,8 @@ int main(int argc, char** argv)
         resultList.push_back(res);
     }
 
+    // print results
     printRes(resultList);
-
     printf("\nFinal Permutation:\n");
     for (int i=0; i<problem_size; i++)
     {
@@ -384,21 +392,19 @@ bool LocalSearch(int* perm, const int n, double** c, double *delta, double **M)
     return false;
 }
 
-bool GraspData::AllocData(int problem_size)
+bool GraspData::AllocData(int n)
 {
-    greedy_value = new double [problem_size];
-    copy_of_values = new double [problem_size];
-    greedy_order = new int [problem_size];
-    copy_of_order = new int [problem_size];
-    length = problem_size;
+    length = n;
+    ALLOC_OR_RET(greedy_value, n);
+    ALLOC_OR_RET(copy_of_values, n);
+    ALLOC_OR_RET(greedy_order, n);
+    ALLOC_OR_RET(copy_of_order, n);
 
-    costs = new double* [problem_size];
-    for (int i=0; i<problem_size; i++)
-        costs[i] = new double [problem_size];
+    ALLOC_OR_RET(costs, n);
+    for (int i=0; i<n; i++) ALLOC_OR_RET(costs[i], n);
 
-    ls_entries = new double* [problem_size];
-    for (int i=0; i<problem_size; ++i)
-        ls_entries[i] = new double [problem_size];
+    ALLOC_OR_RET(ls_entries, n);
+    for (int i=0; i<n; ++i) ALLOC_OR_RET(ls_entries[i], n);
 
     return true;
 }
@@ -419,26 +425,23 @@ GraspData::~GraspData()
     mvecDelete (ls_entries, length);
 }
 
+void readStr(ifstream &f, char *s, double **c, int i, int j) { f >> s; c[i][j] = atoi(s); }
+
 bool GraspData::ReadInstanceValues(ifstream &file)
 {
     const int buffer_size = 1024*10;
     char str[buffer_size];
     file >> str;            // read problem size
-    int problem_size = atoi(str);
+    int n = atoi(str);
 
-    if (!AllocData(problem_size)) return false;
+    if (!AllocData(n)) return false;
 
-    for (int i=0; i<problem_size; i++) greedy_order[i] = i;
+    for (int i=0; i<n; i++) greedy_order[i] = i;
 
     // read cost matrix
-    for (int i=0; i<problem_size; ++i)
-    {
-        for (int j=0; j<problem_size; ++j)
-        {
-            file >> str;
-            costs[i][j] = atoi(str);
-        }
-    }
+    for (int i=0; i<n; ++i) 
+        for (int j=0; j<n; ++j) readStr(file, str, costs, i, j);
+
     return true;
 }
 
@@ -466,7 +469,6 @@ bool GraspData::InputInstance(const int argc, char **argv, int& problem_size)
     problem_size = length;
 
     printf("  Size: %d\n", problem_size);
-
 
     // calculate attractiveness factors for each position
     for (int i=0; i<problem_size; i++) greedy_value[i] = 0;
