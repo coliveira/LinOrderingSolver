@@ -1,6 +1,5 @@
 // (c) 2009, Carlos Oliveira
 #include <stdlib.h>
-#include <fstream>
 #include <time.h>
 #include <stdio.h>
 #include <assert.h>
@@ -29,7 +28,7 @@ bool InputInstance(GraspData *d, const int argc, char **argv, int& problem_size)
 double GetSolutionValue (GraspData *d, int* permutation);
 void printv(GraspData *d);
 bool AllocData(GraspData *d, int problem_size);
-bool ReadInstanceValues(GraspData *d, ifstream &file);
+bool ReadInstanceValues(GraspData *d, FILE *file);
 double GreedyValue(GraspData *d, int pos) { return d->greedy_value[pos]; }
 double **GetCosts(GraspData *d) { return d->costs; }
 double **GetLSEntries(GraspData *d) { return d->ls_entries; }
@@ -417,14 +416,15 @@ void deleteGrasp(GraspData *d)
     mvecDelete (d->ls_entries, d->length);
 }
 
-void readStr(ifstream &f, char *s, double **c, int i, int j) { f >> s; c[i][j] = atoi(s); }
+void readStr(FILE *f, char *s) { fscanf(f, "%s", s); }
+void readEntry(FILE *f, char *s, double **c, int i, int j) { readStr(f, s); c[i][j] = atoi(s); }
 
-bool ReadInstanceValues(GraspData *d, ifstream &file)
+bool ReadInstanceValues(GraspData *d, FILE *file)
 {
     const int buffer_size = 1024*10;
     char str[buffer_size];
-    file >> str;            // read problem size
-    int n = atoi(str);
+    readStr(file, str);
+    int n = atoi(str); // read problem size
 
     if (!AllocData(d, n)) return false;
 
@@ -432,21 +432,20 @@ bool ReadInstanceValues(GraspData *d, ifstream &file)
 
     // read cost matrix
     for (int i=0; i<n; ++i) 
-        for (int j=0; j<n; ++j) readStr(file, str, d->costs, i, j);
+        for (int j=0; j<n; ++j) readEntry(file, str, d->costs, i, j);
 
     return true;
 }
 
 bool InputInstance(GraspData *d, const int argc, char **argv, int& problem_size)
 {
-    ifstream file(argv[1], ifstream::in);
-    
-    if (file.fail()) return failFile(argv[1]);
+    FILE *file = fopen(argv[1], "r");
+    if (!file) return failFile(argv[1]);
     
     const int buffer_size = 1024*10;
     char str[buffer_size];
 
-    file.getline(str, buffer_size);  // ignore first line 
+    fgets(str, buffer_size, file);  // ignore first line 
 
     printf("GRASP for LOP\n");
     printf("Settings:\n");
@@ -457,6 +456,7 @@ bool InputInstance(GraspData *d, const int argc, char **argv, int& problem_size)
     printf("  Title: %s\n", str);
 
     ReadInstanceValues(d, file);
+    fclose(file);
 
     problem_size = d->length;
     double *greedy_value = d->greedy_value;
@@ -468,6 +468,7 @@ bool InputInstance(GraspData *d, const int argc, char **argv, int& problem_size)
     for (int i=0; i<problem_size; i++)			
         for (int j=0; j<problem_size; j++)
             greedy_value[i] += ( d->costs[i][j] - d->costs[j][i] );
+
     
 
     qsort(d->greedy_order, problem_size, sizeof(int), ::compare);	
