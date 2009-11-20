@@ -36,7 +36,7 @@ double **GetLSEntries(GraspData *d) { return d->ls_entries; }
 
 GraspData g_GRASPData;
 
-void LocalSearchForLastEntry(int* pSol, const int, double** c);
+bool LocalSearchForLastEntry(int* pSol, const int, double** c);
 bool LocalSearch(int* perm, const int n, double** c, double *delta, double **M);
 bool LocalSearch(int* perm, const int n, double *delta, GraspData *data);
 int compare (const void * a, const void * b); // used by qsort algorithm
@@ -282,6 +282,8 @@ int main(int argc, char** argv)
 // * in the constructor, check how to find the location where to add the new element
 // * in the constructor, implement the local search performed after each item is selected
 
+template<class T>void copy(int n, T *a, T *b) { for (int i=0; i < n; i++) a[i] = b[i]; }
+
 void ConstructSolution(GraspData *d, int* perm)
 {
     double limit;
@@ -309,12 +311,19 @@ void ConstructSolution(GraspData *d, int* perm)
         qsort(greedy_order, num_remaining, sizeof(int), ::compare);	// update greedy order
     }
 
-    for (int i=0; i < length; i++) greedy_value[i] = d->copy_of_values[i];
-    for (int i=0; i < length; i++) greedy_order[i] = d->copy_of_order[i];
+    copy(length, greedy_value, d->copy_of_values);
+    copy(length, greedy_order, d->copy_of_order);
+}
+
+bool saveLocalSolution(int *p, double best, int a, int b)
+{
+    if (best == 0) return false;
+    int t = p[a]; p[a] = p[b]; p[b] = t;  // swap values
+    return true;
 }
 
 // LocalSearch. Checks only combinations containing the last value.
-void LocalSearchForLastEntry(int* perm, const int nN, double** c)
+bool LocalSearchForLastEntry(int* perm, const int nN, double** c)
 {
     const int LAST_POS = nN-1;
 
@@ -328,19 +337,10 @@ void LocalSearchForLastEntry(int* perm, const int nN, double** c)
         for (int k=i+1; k<LAST_POS; ++k) delta += c[perm[k]][perm[i]] - c[perm[i]][perm[k]];
         for (int k=i+1; k<LAST_POS; ++k) delta += c[j][perm[k]]       - c[perm[k]][j];
         
-        if (delta > best_delta)	// record best permutation so far
-        {
-            pos = i;
-            best_delta = delta;
-        }
+        if (delta > best_delta) pos = i, best_delta = delta; // record best permutation so far
     } 
 
-    if (best_delta > 0) // improved solution
-    {
-        int temp = perm[ pos ];
-        perm[ pos ] = perm[ LAST_POS ];
-        perm[ LAST_POS ] = temp;
-    }
+    return saveLocalSolution(perm, best_delta, pos, LAST_POS);
 }
 
 bool LocalSearch(int* perm, const int n, double *delta, GraspData *data)
@@ -348,10 +348,14 @@ bool LocalSearch(int* perm, const int n, double *delta, GraspData *data)
     return LocalSearch(perm, n, GetCosts(data), delta, GetLSEntries(data));
 }
 
-// perform search on full neighborhood	
+
+#define CHECK_CORRECTNESS   static int test = 0; if (test == 0) test = 1, assert(best_delta == 35774);
+
+// perform search on full neighborhood
+// this needs to be *real* fast, become it is the inner loop of the algorithm
 bool LocalSearch(int* perm, const int n, double** c, double *delta, double **M)
 {
-    int pos1, pos2;
+    int pos1=0, pos2=0;
     double &best_delta = *delta;
     best_delta = 0;
 
@@ -370,17 +374,9 @@ bool LocalSearch(int* perm, const int n, double** c, double *delta, double **M)
             if (deltaij > best_delta)  pos1 = i, pos2 = j, best_delta = deltaij;
         }
     }
+    CHECK_CORRECTNESS;
 
-    static int test = 0;
-    if (test == 0) test = 1, assert(best_delta == 35774);
-    if (best_delta > 0) // solution improved
-    {
-        int temp = perm[pos1];
-        perm[pos1] = perm[ pos2 ];
-        perm[pos2] = temp;
-        return true;
-    }
-    return false;
+    return saveLocalSolution(perm, best_delta, pos1, pos2);
 }
 
 bool AllocData(GraspData *d, int n)
@@ -459,23 +455,20 @@ bool InputInstance(GraspData *d, const int argc, char **argv, int& problem_size)
     fclose(file);
 
     problem_size = d->length;
-    double *greedy_value = d->greedy_value;
 
     printf("  Size: %d\n", problem_size);
 
     // calculate attractiveness factors for each position
-    for (int i=0; i<problem_size; i++) greedy_value[i] = 0;
+    for (int i=0; i<problem_size; i++) d->greedy_value[i] = 0;
     for (int i=0; i<problem_size; i++)			
         for (int j=0; j<problem_size; j++)
-            greedy_value[i] += ( d->costs[i][j] - d->costs[j][i] );
-
-    
+            d->greedy_value[i] += ( d->costs[i][j] - d->costs[j][i] );
 
     qsort(d->greedy_order, problem_size, sizeof(int), ::compare);	
 
     // make a copy of initial values
-    for (int i=0; i<problem_size; i++) d->copy_of_values[i] = greedy_value[i];
-    for (int i=0; i<problem_size; i++) d->copy_of_order[i] = d->greedy_order[i];
+    copy(problem_size, d->copy_of_values, d->greedy_value);
+    copy(problem_size, d->copy_of_order, d->greedy_order);
     
     return true;
 }
