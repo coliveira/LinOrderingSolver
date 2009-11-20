@@ -82,7 +82,7 @@ void printfRes2(double o, double t2, double perc) {
 
 void checkRes(int num_iterations, double objective, double bestValue) {
 DODBG(
-    if (num_iterations == 10) assert(objective == 3391268);
+    if (num_iterations == 10) assert(objective == 3391268 || !"invalid objective function");
     if (num_iterations == 10) assert(bestValue == 3391268);
 )
 }
@@ -480,16 +480,8 @@ bool InputInstance(GraspData *d, const int argc, char **argv, int& problem_size)
     return true;
 }
 
-int compare (const void * a, const void * b) //Compare, used to sort.
-{
-    GraspData &data = g_GRASPData;
-    int a1 = *(int*)a;
-    int a2 = *(int*)b;
-    
-    if      (GreedyValue(&data, a1) <  GreedyValue(&data, a2)) return 1;
-    else if (GreedyValue(&data, a1) == GreedyValue(&data, a2)) return 0;
-    else return -1;
-}
+#define VAL(x) (GreedyValue(&g_GRASPData, *(int*)x))
+int compare (const void *a, const void *b) { return int(VAL(b) - VAL(a)); }
 
 double GetSolutionValue(GraspData *d, int *perm)
 {
