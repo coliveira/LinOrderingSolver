@@ -220,10 +220,15 @@ int main(int argc, char** argv)
                 // change elite_start to the contain the element on position i
                 elite_start[elem_pos] = elite_start[i];
                 elite_start[i] = elem;
-                // TODO: add local search here
+                // apply local search
+                bool success = true;
+                while(success)
+                    success = LocalSearch(current_solution, problem_size, &delta, &g_GRASPData); 
             }
             clock_t prt2 = clock();
             objective = GetSolutionValue(&g_GRASPData, elite_start);
+
+
 
             res.obj3 = objective;
             if (objective > orig_objective) {
