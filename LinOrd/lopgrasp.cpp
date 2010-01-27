@@ -8,10 +8,12 @@
 
 using namespace std;
 
-const int    nItLimit = 5000;  // iteration limit
 const double ALPHA = 0.3;
 const double LARGENUM = 1E9;	
 const int ELITE_SIZE = 20;
+
+int nItLimit = 5000;  // iteration limit
+
 
 struct GraspData {
     double *greedy_value;
@@ -39,7 +41,7 @@ GraspData g_GRASPData;
 bool LocalSearchForLastEntry(int* pSol, const int, double** c);
 bool LocalSearch(int* perm, const int n, double** c, double *delta, double **M);
 bool LocalSearch(int* perm, const int n, double *delta, GraspData *data);
-int compare (const void * a, const void * b); // used by qsort algorithm
+static int compare (const void * a, const void * b); // used by qsort algorithm
 
 
 struct EliteEntry {
@@ -152,10 +154,15 @@ void insertIntoElite(EliteEntry **e, double cost, int *sol) {
 }
 
 
-int main(int argc, char** argv)
+int mainNew(int argc, char** argv)
 {
-   if (argc != 2) return usage(argv[0]);
-
+   if (argc < 2 || argc == 3 || argc > 4) return usage(argv[0]);
+   
+   if (argc == 4) {
+       if (strcmpi("-i", argv[2])) return usage(argv[0]);
+       nItLimit = atoi(argv[3]);
+       if (nItLimit < 1) return usage(argv[0]);
+   }
     srand (1); // (unsigned)time(NULL));
     clock_t startTime = clock();
     int problem_size = 0;
@@ -250,15 +257,18 @@ int main(int argc, char** argv)
             bestValue = objective;
 
             clock_t currentTime = clock();
-            printf("iter: %d best %d constr_time: %.2lf ls_time: %.2lf %ld\n",
+            printf("iter: %d best %d constr_time: %.2lf ls_time: %.2lf %.4lf\n",
                 num_iterations, (int)bestValue,
                 (double)total_const_time/num_iterations,
-                (double)total_ls_time/num_ls_iter, currentTime - startTime);
+                (double)total_ls_time/num_ls_iter, 
+                (currentTime - startTime)/(1.0*CLOCKS_PER_SEC));
         }
 
         checkRes(num_iterations, objective, bestValue);
         resultList.push_back(res);
     }
+
+    printf("Total time: %.4lf\n", (clock()-startTime)/(double)CLOCKS_PER_SEC);
 
     // print results
     printRes(resultList);
@@ -364,10 +374,8 @@ bool LocalSearch(int* perm, const int n, double** c, double *delta, double **M)
     double &best_delta = *delta;
     best_delta = 0;
 
-    for (int k=0; k<n-1; ++k)
-    {
-        for (int i=0, j=k+1; j<n; ++i, ++j)
-        {
+    for (int k=0; k<n-1; ++k) {
+        for (int i=0, j=k+1; j<n; ++i, ++j) {
             int pi = perm[i], pj = perm[j];
             int ppi = perm[i+1], pmj = perm[j-1];
 
@@ -479,7 +487,7 @@ bool InputInstance(GraspData *d, const int argc, char **argv, int& problem_size)
 }
 
 #define VAL(x) (GreedyValue(&g_GRASPData, *(int*)x))
-int compare (const void *a, const void *b) { return int(VAL(b) - VAL(a)); }
+static int compare (const void *a, const void *b) { return int(VAL(b) - VAL(a)); }
 
 double GetSolutionValue(GraspData *d, int *perm)
 {
