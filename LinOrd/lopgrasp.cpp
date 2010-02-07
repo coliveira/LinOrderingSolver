@@ -182,7 +182,8 @@ int mainNew(int argc, char** argv)
     clock_t total_const_time=0, total_ls_time=0;
     int num_ls_iter = 0;
     double bestValue = 0;
-    printf("constructor  (time)   LS   #iter  (time)  \n");
+    clock_t best_time;
+    //printf("constructor  (time)   LS   #iter  (time)  \n");
     for (int num_iterations=1; num_iterations < nItLimit; ++num_iterations)
     {
         // apply constructor
@@ -255,28 +256,30 @@ int mainNew(int argc, char** argv)
         if (objective > bestValue) {
             for (int i=0; i<problem_size; i++) best_solution[i] = current_solution[i];
             bestValue = objective;
+            best_time = clock();
 
-            clock_t currentTime = clock();
+            /*clock_t currentTime = clock();
             printf("iter: %d best %d constr_time: %.2lf ls_time: %.2lf %.4lf\n",
                 num_iterations, (int)bestValue,
                 (double)total_const_time/num_iterations,
                 (double)total_ls_time/num_ls_iter, 
-                (currentTime - startTime)/(1.0*CLOCKS_PER_SEC));
+                (currentTime - startTime)/(1.0*CLOCKS_PER_SEC));*/
         }
 
         checkRes(num_iterations, objective, bestValue);
         resultList.push_back(res);
     }
 
-    printf("Total time: %.4lf\n", (clock()-startTime)/(double)CLOCKS_PER_SEC);
+    printf("%d %.4lf %.4lf \n", (int)bestValue, (best_time-startTime)/(double)CLOCKS_PER_SEC,
+        (clock()-startTime)/(double)CLOCKS_PER_SEC);
 
     // print results
     printRes(resultList);
-    printf("\nFinal Permutation:\n");
+    /*printf("\nFinal Permutation:\n");
     for (int i=0; i<problem_size; i++)
     {
         printf("%d %s", best_solution[i], (((i+1) % 10 == 0) ? "\n" : ""));
-    }
+    }*/
 
     for (int i=0; i<ELITE_SIZE; ++i) delete elite_set[i];
     delete[] elite_set;
@@ -456,20 +459,21 @@ bool InputInstance(GraspData *d, const int argc, char **argv, int& problem_size)
 
     fgets(str, buffer_size, file);  // ignore first line 
 
-    printf("GRASP for LOP\n");
+    /*printf("GRASP for LOP\n");
     printf("Settings:\n");
     printf("  Max #Iterations: %d\n", nItLimit);
     printf("  Alpha: %lf\n", ALPHA);
     printf("Problem\n");
     printf("  Filename: %s\n", argv[1]);
-    printf("  Title: %s\n", str);
+    printf("  Title: %s\n", str);*/
+    printf("%s ", argv[1]);
 
     ReadInstanceValues(d, file);
     fclose(file);
 
     problem_size = d->length;
 
-    printf("  Size: %d\n", problem_size);
+    //printf("  Size: %d\n", problem_size);
 
     // calculate attractiveness factors for each position
     for (int i=0; i<problem_size; i++) d->greedy_value[i] = 0;
